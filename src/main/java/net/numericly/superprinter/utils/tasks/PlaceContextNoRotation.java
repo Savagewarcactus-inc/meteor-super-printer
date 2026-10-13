@@ -1,54 +1,55 @@
 package net.numericly.superprinter.utils.tasks;
 
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.NotNull;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
-public class PlaceContextNoRotation extends ItemPlacementContext {
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+
+public class PlaceContextNoRotation extends BlockPlaceContext {
 
     private final boolean isSneaking;
 
-    protected PlaceContextNoRotation(World level, Hand interactionHand, ItemStack itemStack, BlockHitResult blockHitResult) {
+    protected PlaceContextNoRotation(Level level, InteractionHand interactionHand, ItemStack itemStack, BlockHitResult blockHitResult) {
         super(level, null, interactionHand, itemStack, blockHitResult);
 
         assert mc.player != null;
 
-        this.isSneaking = mc.player.isSneaking();
+        this.isSneaking = mc.player.isShiftKeyDown();
     }
 
     @Override
-    public @NotNull Direction getPlayerLookDirection() {
+    public @NotNull Direction getNearestLookingDirection() {
         throw new RuntimeException();
     }
 
     @Override
-    public @NotNull Direction getVerticalPlayerLookDirection() {
+    public @NotNull Direction getNearestLookingVerticalDirection() {
         throw new RuntimeException();
     }
 
     @Override
-    public Direction @NotNull [] getPlacementDirections() {
+    public Direction @NotNull [] getNearestLookingDirections() {
         throw new RuntimeException();
     }
 
     @Override
-    public @NotNull Direction getHorizontalPlayerFacing() {
+    public @NotNull Direction getHorizontalDirection() {
         throw new RuntimeException();
     }
 
     @Override
-    public boolean shouldCancelInteraction() {
+    public boolean isSecondaryUseActive() {
         return isSneaking;
     }
 
     @Override
-    public float getPlayerYaw() {
+    public float getRotation() {
         throw new RuntimeException();
     }
 }

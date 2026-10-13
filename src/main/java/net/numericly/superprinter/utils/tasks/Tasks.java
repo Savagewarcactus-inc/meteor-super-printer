@@ -1,19 +1,19 @@
 package net.numericly.superprinter.utils.tasks;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
 public class Tasks {
     static long MAX_TIME = 100;
 
-    static Map<net.minecraft.util.math.BlockPos, Long> taskUpdatedMap = new HashMap<>();
+    static Map<net.minecraft.core.BlockPos, Long> taskUpdatedMap = new HashMap<>();
     static Map<BlockPos, Task> taskMap = new HashMap<>();
 
     @Nullable
@@ -41,7 +41,7 @@ public class Tasks {
 
     @Nullable
     private static Task createTask(BlockState required, BlockState current, BlockPos location) {
-        assert mc.world != null;
+        assert mc.level != null;
 
         // Already complete
         if (required == current) {
@@ -69,7 +69,7 @@ public class Tasks {
     }
 
     private static boolean wrongBlock(BlockState required, BlockState current) {
-        if (current.isReplaceable()) {
+        if (current.canBeReplaced()) {
             return false;
         }
 

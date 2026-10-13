@@ -2,16 +2,16 @@ package net.numericly.superprinter.utils;
 
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import fi.dy.masa.litematica.world.WorldSchematic;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.network.packet.c2s.play.PlayerInputC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.numericly.superprinter.SuperPrinter;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,24 +34,24 @@ public class Utils {
     public static boolean isWithinBlockInteractionRange(BlockPos pos) {
         assert mc.player != null;
 
-        return isWithinBlockInteractionRange(mc.player.getEyePos(), pos);
+        return isWithinBlockInteractionRange(mc.player.getEyePosition(), pos);
     }
 
-    public static boolean isWithinBlockInteractionRange(Vec3d eyePos, BlockPos pos) {
-        double d = mc.player.getBlockInteractionRange() + 1.0;
-        return new Box(pos).squaredMagnitude(eyePos) < d * d;
+    public static boolean isWithinBlockInteractionRange(Vec3 eyePos, BlockPos pos) {
+        double d = mc.player.blockInteractionRange() + 1.0;
+        return new AABB(pos).distanceToSqr(eyePos) < d * d;
     }
 
-    public static boolean isValid(World world, Vec3d pos) {
+    public static boolean isValid(Level world, Vec3 pos) {
         EntityDimensions hitbox = mc.player.getDimensions(mc.player.getPose());
 
         return isValid(world, pos, hitbox);
     }
 
-    public static boolean isValid(World world, Vec3d pos, EntityDimensions hitbox) {
-        Box box = hitbox.getBoxAt(pos);
+    public static boolean isValid(Level world, Vec3 pos, EntityDimensions hitbox) {
+        AABB box = hitbox.makeBoundingBox(pos);
 
-        if (!world.isSpaceEmpty(mc.player, box)) {
+        if (!world.noCollision(mc.player, box)) {
             return false;
         }
 
@@ -59,9 +59,9 @@ public class Utils {
     }
 
     @Nullable
-    public static Vec3d findSafeSpotForPlacement(BlockPos location) {
+    public static Vec3 findSafeSpotForPlacement(BlockPos location) {
         assert mc.player != null;
-        assert mc.world != null;
+        assert mc.level != null;
 
         WorldSchematic worldSchematic = SchematicWorldHandler.getSchematicWorld();
 
@@ -69,7 +69,7 @@ public class Utils {
 
         int maxRange = 6;
 
-        List<Vec3d> toCheck = new ArrayList<>();
+        List<Vec3> toCheck = new ArrayList<>();
 
         for (int x = -maxRange; x <= maxRange; x++) {
             for (int y = -maxRange; y <= maxRange; y++) {
@@ -77,25 +77,25 @@ public class Utils {
                     int magnitudeSquared = x*x + y*y + z*z;
 
                     if (magnitudeSquared <= maxRange * maxRange) {
-                        toCheck.add(new Vec3d(x, y, z));
+                        toCheck.add(new Vec3(x, y, z));
                     }
                 }
             }
         }
 
-        toCheck.sort(Comparator.comparingDouble(Vec3d::lengthSquared));
-        toCheck.replaceAll(offset -> location.toBottomCenterPos().add(offset));
+        toCheck.sort(Comparator.comparingDouble(Vec3::lengthSqr));
+        toCheck.replaceAll(offset -> Vec3.atBottomCenterOf(location).add(offset));
 
         EntityDimensions hitbox = mc.player.getDimensions(mc.player.getPose());
 
-        Vec3d eyeOffset = new Vec3d(0, mc.player.getStandingEyeHeight(), 0);
+        Vec3 eyeOffset = new Vec3(0, mc.player.getEyeHeight(), 0);
 
-        for (Vec3d pos : toCheck) {
+        for (Vec3 pos : toCheck) {
             if (!Utils.isWithinBlockInteractionRange(pos.add(eyeOffset), location)) {
                 continue;
             }
 
-            if (!Utils.isValid(mc.world, pos, hitbox)) {
+            if (!Utils.isValid(mc.level, pos, hitbox)) {
                 continue;
             }
 
@@ -109,57 +109,57 @@ public class Utils {
         return null;
     }
 
-    public static void interactBlock(BlockHitResult hitResult, Hand hand) {
+    public static void interactBlock(BlockHitResult hitResult, InteractionHand hand) {
         assert mc.player != null;
-        assert mc.interactionManager != null;
+        assert mc.gameMode != null;
 
-        mc.interactionManager.interactBlock(mc.player, hand, hitResult);
+        mc.gameMode.useItemOn(mc.player, hand, hitResult);
 
     }
 
-    public static void interactBlock(BlockHitResult hitResult, Hand hand, float pitch, float yaw, boolean sneaking) {
+    public static void interactBlock(BlockHitResult hitResult, InteractionHand hand, float pitch, float yaw, boolean sneaking) {
         assert mc.player != null;
-        assert mc.interactionManager != null;
+        assert mc.gameMode != null;
 
-        float oldPitch = mc.player.getPitch();
-        float oldLastPitch = mc.player.lastPitch;
-        float oldYaw = mc.player.getYaw();
-        float oldLastYaw = mc.player.lastYaw;
-        float oldHeadYaw = mc.player.getHeadYaw();
-        float oldLastHeadYaw = mc.player.lastHeadYaw;
-        boolean oldSneaking = mc.player.isSneaking();
+        float oldPitch = mc.player.getXRot();
+        float oldLastPitch = mc.player.xRotO;
+        float oldYaw = mc.player.getYRot();
+        float oldLastYaw = mc.player.yRotO;
+        float oldHeadYaw = mc.player.getYHeadRot();
+        float oldLastHeadYaw = mc.player.yHeadRotO;
+        boolean oldSneaking = mc.player.isShiftKeyDown();
 
-        mc.player.setPitch(pitch);
-        mc.player.lastPitch = pitch;
-        mc.player.setYaw(yaw);
-        mc.player.lastYaw = yaw;
-        mc.player.setHeadYaw(yaw);
-        mc.player.lastHeadYaw = yaw;
-        mc.player.setSneaking(sneaking);
+        mc.player.setXRot(pitch);
+        mc.player.xRotO = pitch;
+        mc.player.setYRot(yaw);
+        mc.player.yRotO = yaw;
+        mc.player.setYHeadRot(yaw);
+        mc.player.yHeadRotO = yaw;
+        mc.player.setShiftKeyDown(sneaking);
 
-        mc.interactionManager.interactBlock(mc.player, hand, hitResult);
+        mc.gameMode.useItemOn(mc.player, hand, hitResult);
 
-        mc.player.setPitch(oldPitch);
-        mc.player.lastPitch = oldLastPitch;
-        mc.player.setYaw(oldYaw);
-        mc.player.lastYaw = oldLastYaw;
-        mc.player.setHeadYaw(oldHeadYaw);
-        mc.player.lastHeadYaw = oldLastHeadYaw;
-        mc.player.setSneaking(oldSneaking);
+        mc.player.setXRot(oldPitch);
+        mc.player.xRotO = oldLastPitch;
+        mc.player.setYRot(oldYaw);
+        mc.player.yRotO = oldLastYaw;
+        mc.player.setYHeadRot(oldHeadYaw);
+        mc.player.yHeadRotO = oldLastHeadYaw;
+        mc.player.setShiftKeyDown(oldSneaking);
 
     }
 
     public static void rotate(float lookYaw, float lookPitch) {
-        mc.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(lookYaw, lookPitch, false, false));
+        mc.getConnection().send(new ServerboundMovePlayerPacket.Rot(lookYaw, lookPitch, false, false));
     }
 
     public static void setSneaking(boolean sneaking) {
         assert mc.player != null;
 
-        PlayerInput input = mc.player.input.playerInput;
+        Input input = mc.player.input.keyPresses;
 
-        mc.getNetworkHandler().sendPacket(new PlayerInputC2SPacket(
-            new PlayerInput(
+        mc.getConnection().send(new ServerboundPlayerInputPacket(
+            new Input(
                 input.forward(),
                 input.backward(),
                 input.left(),

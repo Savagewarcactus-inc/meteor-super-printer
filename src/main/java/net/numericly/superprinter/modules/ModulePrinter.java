@@ -11,11 +11,12 @@ import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.systems.modules.movement.Flight;
 import meteordevelopment.meteorclient.systems.modules.movement.Scaffold;
 import meteordevelopment.meteorclient.utils.render.color.Color;
-import net.minecraft.entity.passive.BeeEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.profiler.Profilers;
-import net.minecraft.world.GameMode;
+import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.profiling.Profiler;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.state.BlockState;
 import net.numericly.superprinter.SuperPrinter;
 import net.numericly.superprinter.utils.InventoryManager;
 import net.numericly.superprinter.utils.Utils;
@@ -27,14 +28,11 @@ import meteordevelopment.meteorclient.events.game.OpenScreenEvent;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
-import net.minecraft.client.gui.screen.ingame.AbstractSignEditScreen;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.meteorclient.utils.world.BlockIterator;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.BlockState;
-import net.minecraft.util.math.BlockPos;
 import net.numericly.superprinter.utils.tasks.Tasks;
 
 public class ModulePrinter extends Module {
@@ -159,11 +157,11 @@ public class ModulePrinter extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Post event) {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
         if (dupeNext) {
             dupedAt = System.currentTimeMillis();
-            mc.getNetworkHandler().sendChatCommand(dupeCommand.get());
+            mc.getConnection().sendCommand(dupeCommand.get());
             dupeNext = false;
         }
 
@@ -201,9 +199,9 @@ public class ModulePrinter extends Module {
 
             long sinceDuped = System.currentTimeMillis() - dupedAt;
 
-            if (autoDupe.get() && mc.player.getGameMode() != GameMode.CREATIVE && sinceDuped > dupeWaitTime.get()) {
-                ItemStack stack = mc.player.getMainHandStack();
-                int halfStackSize = stack.getItem().getMaxCount() / 2;
+            if (autoDupe.get() && mc.player.gameMode() != GameType.CREATIVE && sinceDuped > dupeWaitTime.get()) {
+                ItemStack stack = mc.player.getMainHandItem();
+                int halfStackSize = stack.getItem().getDefaultMaxStackSize() / 2;
 
                 if (stack.getCount() <= halfStackSize) {
                     dupeNext = true;
@@ -214,7 +212,7 @@ public class ModulePrinter extends Module {
 
             int executed = 0;
 
-            Profilers.get().push("sp-placement");
+            Profiler.get().push("sp-placement");
 
             for (BlockPos pos : toCheck) {
                 if (executed >= blocksAllowed) {
@@ -222,7 +220,7 @@ public class ModulePrinter extends Module {
                 }
 
                 BlockState required = worldSchematic.getBlockState(pos);
-                BlockState current = mc.world.getBlockState(pos);
+                BlockState current = mc.level.getBlockState(pos);
 
                 Task task = Tasks.getOrCreateTask(required, current, new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
 
@@ -232,7 +230,7 @@ public class ModulePrinter extends Module {
                 }
             }
 
-            Profilers.get().pop();
+            Profiler.get().pop();
 
             toCheck.clear();
 

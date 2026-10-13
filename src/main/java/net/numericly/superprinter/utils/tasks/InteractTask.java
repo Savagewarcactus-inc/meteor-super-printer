@@ -1,27 +1,36 @@
 package net.numericly.superprinter.utils.tasks;
 
+import net.minecraft.world.phys.Vec3;
 import meteordevelopment.meteorclient.utils.player.Rotations;
-import net.minecraft.block.*;
-import net.minecraft.block.enums.WireConnection;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.world.level.block.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.block.ComparatorBlock;
+import net.minecraft.world.level.block.CopperGolemStatueBlock;
+import net.minecraft.world.level.block.DaylightDetectorBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RepeaterBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec2;
 import net.numericly.superprinter.utils.Utils;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
-import static net.minecraft.block.RedstoneWireBlock.*;
+import static net.minecraft.world.level.block.RedStoneWireBlock.*;
 
 public class InteractTask extends Task {
 
     BlockHitResult hitResult;
     @Nullable
-    Vec2f rotation;
+    Vec2 rotation;
 
     @Nullable
     static InteractTask tryCreate(BlockPos location, BlockState current, BlockState required) {
@@ -29,61 +38,61 @@ public class InteractTask extends Task {
             return null;
         }
 
-        if (current.getBlock() instanceof TrapdoorBlock || current.getBlock() instanceof DoorBlock) {
-            if (current.get(Properties.OPEN) != required.get(Properties.OPEN)) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+        if (current.getBlock() instanceof TrapDoorBlock || current.getBlock() instanceof DoorBlock) {
+            if (current.getValue(BlockStateProperties.OPEN) != required.getValue(BlockStateProperties.OPEN)) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
 
         if (current.getBlock() instanceof FenceGateBlock) {
-            if (current.get(Properties.OPEN) != required.get(Properties.OPEN)) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+            if (current.getValue(BlockStateProperties.OPEN) != required.getValue(BlockStateProperties.OPEN)) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
 
-                float yaw = Direction.getHorizontalDegreesOrThrow(required.get(Properties.HORIZONTAL_FACING));
+                float yaw = Direction.getYRot(required.getValue(BlockStateProperties.HORIZONTAL_FACING));
 
-                return new InteractTask(location, current, required, result, new Vec2f(yaw, 0));
+                return new InteractTask(location, current, required, result, new Vec2(yaw, 0));
             }
         }
 
         if (current.getBlock() instanceof ComparatorBlock) {
-            if (current.get(Properties.COMPARATOR_MODE) != required.get(Properties.COMPARATOR_MODE)) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+            if (current.getValue(BlockStateProperties.MODE_COMPARATOR) != required.getValue(BlockStateProperties.MODE_COMPARATOR)) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
 
-        if (current.getBlock() instanceof RedstoneWireBlock) {
-            if ((isFullyConnected(current) && isNotConnected(required)) || (isNotConnected(current) && isFullyConnected(required))) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+        if (current.getBlock() instanceof RedStoneWireBlock) {
+            if ((isCross(current) && isDot(required)) || (isDot(current) && isCross(required))) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
 
         if (current.getBlock() instanceof CopperGolemStatueBlock) {
-            if (current.get(Properties.COPPER_GOLEM_POSE) != required.get(Properties.COPPER_GOLEM_POSE)) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+            if (current.getValue(BlockStateProperties.COPPER_GOLEM_POSE) != required.getValue(BlockStateProperties.COPPER_GOLEM_POSE)) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
 
         if (current.getBlock() instanceof RepeaterBlock) {
-            if (current.get(Properties.DELAY).intValue() != required.get(Properties.DELAY).intValue()) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+            if (current.getValue(BlockStateProperties.DELAY).intValue() != required.getValue(BlockStateProperties.DELAY).intValue()) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
 
         if (current.getBlock() instanceof LeverBlock) {
-            if (current.get(Properties.POWERED) != required.get(Properties.POWERED)) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+            if (current.getValue(BlockStateProperties.POWERED) != required.getValue(BlockStateProperties.POWERED)) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
 
         if (current.getBlock() instanceof DaylightDetectorBlock) {
-            if (current.get(Properties.INVERTED) != required.get(Properties.INVERTED)) {
-                BlockHitResult result = new BlockHitResult(location.toCenterPos(), Direction.NORTH, location, false);
+            if (current.getValue(BlockStateProperties.INVERTED) != required.getValue(BlockStateProperties.INVERTED)) {
+                BlockHitResult result = new BlockHitResult(Vec3.atCenterOf(location), Direction.NORTH, location, false);
                 return new InteractTask(location, current, required, result);
             }
         }
@@ -96,7 +105,7 @@ public class InteractTask extends Task {
         this.hitResult = hitResult;
     }
 
-    InteractTask(BlockPos location, BlockState current, BlockState required, BlockHitResult hitResult, @NotNull Vec2f rotation) {
+    InteractTask(BlockPos location, BlockState current, BlockState required, BlockHitResult hitResult, @NotNull Vec2 rotation) {
         super(location, current, required);
         this.hitResult = hitResult;
         this.rotation = rotation;
@@ -104,11 +113,11 @@ public class InteractTask extends Task {
 
     @Override
     public boolean execute() {
-        assert mc.interactionManager != null;
+        assert mc.gameMode != null;
         assert mc.player != null;
-        assert mc.world != null;
+        assert mc.level != null;
 
-        if (mc.world.getBlockState(location) != current) return false;
+        if (mc.level.getBlockState(location) != current) return false;
 
         if (!Utils.isWithinBlockInteractionRange(location)) return false;
 
@@ -118,7 +127,7 @@ public class InteractTask extends Task {
 
         Utils.setSneaking(false);
 
-        Utils.interactBlock(hitResult, Hand.MAIN_HAND);
+        Utils.interactBlock(hitResult, InteractionHand.MAIN_HAND);
 
         return true;
     }
