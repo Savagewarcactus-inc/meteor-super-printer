@@ -4,19 +4,29 @@ import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import fi.dy.masa.litematica.world.WorldSchematic;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.block.*;
-import net.minecraft.block.enums.ChestType;
-import net.minecraft.block.enums.SlabType;
+import net.minecraft.world.level.block.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.numericly.superprinter.modules.ModulePrinter;
-import net.minecraft.item.*;
-import net.minecraft.state.property.Properties;
-import net.minecraft.state.property.Property;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.minecraft.world.item.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.StandingAndWallBlockItem;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.MultifaceSpreadeableBlock;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.numericly.superprinter.SuperPrinter;
 import net.numericly.superprinter.utils.InventoryManager;
 import net.numericly.superprinter.utils.Utils;
@@ -35,14 +45,14 @@ public class PlaceTask extends Task {
 
     @Nullable
     static PlaceTask tryCreate(BlockPos location, BlockState current, BlockState required) {
-        if (!current.isReplaceable() && current.getBlock() != required.getBlock()) {
+        if (!current.canBeReplaced() && current.getBlock() != required.getBlock()) {
             return null;
         }
         assert mc.player != null;
 
         ItemStack itemStack;
 
-        if (mc.player.getGameMode() == GameMode.CREATIVE) {
+        if (mc.player.gameMode() == GameType.CREATIVE) {
             itemStack = new ItemStack(required.getBlock().asItem(), 1);
         } else {
             FindItemResult result = InvUtils.find(required.getBlock().asItem());
@@ -51,29 +61,29 @@ public class PlaceTask extends Task {
                 return null;
             }
 
-            itemStack = mc.player.getInventory().getStack(result.slot());
+            itemStack = mc.player.getInventory().getItem(result.slot());
         }
 
         if (!(itemStack.getItem() instanceof BlockItem blockItem)) return null;
 
-        if (!required.canPlaceAt(mc.world, location)) {
+        if (!required.canSurvive(mc.level, location)) {
             return null;
         }
 
         if (required.getBlock() instanceof FallingBlock &&
-            FallingBlock.canFallThrough(mc.world.getBlockState(location.down())) &&
-            location.getY() >= mc.world.getBottomY()) {
+            FallingBlock.isFree(mc.level.getBlockState(location.below())) &&
+            location.getY() >= mc.level.getMinY()) {
             return null;
         }
 
-        Hand hand = Hand.MAIN_HAND;
+        InteractionHand hand = InteractionHand.MAIN_HAND;
 
         for (float yaw : createYaws(required)) {
             for (float pitch : createPitches(blockItem, required)) {
-                for (Vec3d offset : createOffsets(required)) {
+                for (Vec3 offset : createOffsets(required)) {
                     for (Direction direction : Direction.values()) {
-                        BlockHitResult blockHitResult = new BlockHitResult(location.toCenterPos().add(offset), direction, location, false);
-                        PlaceContextRotation context = new PlaceContextRotation(mc.world, yaw, pitch, hand, itemStack, blockHitResult);
+                        BlockHitResult blockHitResult = new BlockHitResult(Vec3.atCenterOf(location).add(offset), direction, location, false);
+                        PlaceContextRotation context = new PlaceContextRotation(mc.level, yaw, pitch, hand, itemStack, blockHitResult);
 
                         BlockState newState = blockItem.getPlacementState(context);
 
@@ -99,12 +109,12 @@ public class PlaceTask extends Task {
     }
 
     public static List<Float> createYaws(BlockState state) {
-        if (state.contains(Properties.ROTATION)) {
+        if (state.hasProperty(BlockStateProperties.ROTATION_16)) {
             return List.of(0.0F, 22.5F, 45.0F, 67.5F, 90.0F, 112.5F, 135.0F, 157.5F, 180.0F, 202.5F, 225.0F, 247.5F, 270.0F, 292.5F, 315.0F, 337.5F);
-        } else if (state.contains(Properties.HORIZONTAL_FACING) ||
-            state.contains(Properties.FACING) ||
-            state.contains(Properties.BLOCK_FACE) ||
-            state.contains(Properties.ORIENTATION)) {
+        } else if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) ||
+            state.hasProperty(BlockStateProperties.FACING) ||
+            state.hasProperty(BlockStateProperties.ATTACH_FACE) ||
+            state.hasProperty(BlockStateProperties.ORIENTATION)) {
             return List.of(0F, 90F, 180F, 270F);
         } else {
             return List.of(0F);
@@ -112,23 +122,23 @@ public class PlaceTask extends Task {
     }
 
     public static List<Float> createPitches(BlockItem item, BlockState state) {
-        if (item instanceof VerticallyAttachableBlockItem) {
-            if (state.contains(Properties.HORIZONTAL_FACING)) {
+        if (item instanceof StandingAndWallBlockItem) {
+            if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
                 return List.of(0F);
-            } else if (state.contains(Properties.ROTATION)) {
+            } else if (state.hasProperty(BlockStateProperties.ROTATION_16)) {
                 return List.of(90F, -90F);
             }
         }
 
-        if (state.contains(Properties.VERTICAL_DIRECTION) ||
-            state.contains(Properties.FACING) ||
-            state.contains(Properties.SLAB_TYPE) ||
-            state.contains(Properties.BLOCK_HALF) ||
-            state.contains(Properties.ORIENTATION) ||
-            state.contains(Properties.BLOCK_FACE) ||
-            state.contains(Properties.ROTATION) ||
-            state.contains(Properties.HANGING) ||
-            state.getBlock() instanceof MultifaceGrowthBlock
+        if (state.hasProperty(BlockStateProperties.VERTICAL_DIRECTION) ||
+            state.hasProperty(BlockStateProperties.FACING) ||
+            state.hasProperty(BlockStateProperties.SLAB_TYPE) ||
+            state.hasProperty(BlockStateProperties.HALF) ||
+            state.hasProperty(BlockStateProperties.ORIENTATION) ||
+            state.hasProperty(BlockStateProperties.ATTACH_FACE) ||
+            state.hasProperty(BlockStateProperties.ROTATION_16) ||
+            state.hasProperty(BlockStateProperties.HANGING) ||
+            state.getBlock() instanceof MultifaceSpreadeableBlock
         ) {
             return List.of(0F, 90F, -90F);
         } else {
@@ -136,19 +146,19 @@ public class PlaceTask extends Task {
         }
     }
 
-    public static List<Vec3d> createOffsets(BlockState state) {
+    public static List<Vec3> createOffsets(BlockState state) {
         if (state.getBlock() instanceof DoorBlock) {
             return List.of(
-                Vec3d.ZERO,
-                new Vec3d(0.5, 0, 0.5),
-                new Vec3d(0.5, 0, -0.5),
-                new Vec3d(-0.5, 0, 0.5),
-                new Vec3d(-0.5, 0, -0.5)
+                Vec3.ZERO,
+                new Vec3(0.5, 0, 0.5),
+                new Vec3(0.5, 0, -0.5),
+                new Vec3(-0.5, 0, 0.5),
+                new Vec3(-0.5, 0, -0.5)
             );
-        } else if (state.getBlock() instanceof SnowBlock) {
-            return List.of(new Vec3d(0, 0.5, 0));
+        } else if (state.getBlock() instanceof SnowLayerBlock) {
+            return List.of(new Vec3(0, 0.5, 0));
         } else {
-            return List.of(Vec3d.ZERO);
+            return List.of(Vec3.ZERO);
         }
     }
 
@@ -162,43 +172,43 @@ public class PlaceTask extends Task {
         }
 
         if (old.getBlock() == newState.getBlock()) {
-            if (old.contains(Properties.SLAB_TYPE)) {
-                SlabType oldType = old.get(Properties.SLAB_TYPE);
-                SlabType placedType = newState.get(Properties.SLAB_TYPE);
-                SlabType reqType = required.get(Properties.SLAB_TYPE);
+            if (old.hasProperty(BlockStateProperties.SLAB_TYPE)) {
+                SlabType oldType = old.getValue(BlockStateProperties.SLAB_TYPE);
+                SlabType placedType = newState.getValue(BlockStateProperties.SLAB_TYPE);
+                SlabType reqType = required.getValue(BlockStateProperties.SLAB_TYPE);
 
                 // If the slab type has changed from top or bottom to double
                 return oldType != SlabType.DOUBLE && placedType == reqType;
             }
 
-            if (old.contains(Properties.LAYERS)) {
-                int oldCount = old.get(Properties.LAYERS);
-                int placedCount = newState.get(Properties.LAYERS);
-                int reqCount = required.get(Properties.LAYERS);
+            if (old.hasProperty(BlockStateProperties.LAYERS)) {
+                int oldCount = old.getValue(BlockStateProperties.LAYERS);
+                int placedCount = newState.getValue(BlockStateProperties.LAYERS);
+                int reqCount = required.getValue(BlockStateProperties.LAYERS);
 
                 return reqCount > oldCount && placedCount > oldCount;
             }
 
-            if (old.contains(Properties.CANDLES)) {
-                int oldCount = old.get(Properties.CANDLES);
-                int placedCount = newState.get(Properties.CANDLES);
-                int reqCount = required.get(Properties.CANDLES);
+            if (old.hasProperty(BlockStateProperties.CANDLES)) {
+                int oldCount = old.getValue(BlockStateProperties.CANDLES);
+                int placedCount = newState.getValue(BlockStateProperties.CANDLES);
+                int reqCount = required.getValue(BlockStateProperties.CANDLES);
 
                 return reqCount > oldCount && placedCount > oldCount;
             }
 
-            if (old.contains(Properties.FLOWER_AMOUNT)) {
-                int oldCount = old.get(Properties.FLOWER_AMOUNT);
-                int placedCount = newState.get(Properties.FLOWER_AMOUNT);
-                int reqCount = required.get(Properties.FLOWER_AMOUNT);
+            if (old.hasProperty(BlockStateProperties.FLOWER_AMOUNT)) {
+                int oldCount = old.getValue(BlockStateProperties.FLOWER_AMOUNT);
+                int placedCount = newState.getValue(BlockStateProperties.FLOWER_AMOUNT);
+                int reqCount = required.getValue(BlockStateProperties.FLOWER_AMOUNT);
 
                 return reqCount > oldCount && placedCount > oldCount;
             }
 
-            if (old.contains(Properties.SEGMENT_AMOUNT)) {
-                int oldCount = old.get(Properties.SEGMENT_AMOUNT);
-                int placedCount = newState.get(Properties.SEGMENT_AMOUNT);
-                int reqCount = required.get(Properties.SEGMENT_AMOUNT);
+            if (old.hasProperty(BlockStateProperties.SEGMENT_AMOUNT)) {
+                int oldCount = old.getValue(BlockStateProperties.SEGMENT_AMOUNT);
+                int placedCount = newState.getValue(BlockStateProperties.SEGMENT_AMOUNT);
+                int reqCount = required.getValue(BlockStateProperties.SEGMENT_AMOUNT);
 
                 return reqCount > oldCount && placedCount > oldCount;
             }
@@ -206,58 +216,58 @@ public class PlaceTask extends Task {
             return false;
         }
 
-        if (required.contains(Properties.SLAB_TYPE)) {
-            SlabType req = required.get(Properties.SLAB_TYPE);
-            SlabType placed = newState.get(Properties.SLAB_TYPE);
+        if (required.hasProperty(BlockStateProperties.SLAB_TYPE)) {
+            SlabType req = required.getValue(BlockStateProperties.SLAB_TYPE);
+            SlabType placed = newState.getValue(BlockStateProperties.SLAB_TYPE);
 
             if (req != SlabType.DOUBLE && req != placed) {
                 return false;
             }
         }
 
-        if (required.contains(Properties.CHEST_TYPE)) {
-            ChestType req = required.get(Properties.CHEST_TYPE);
-            ChestType placed = newState.get(Properties.CHEST_TYPE);
+        if (required.hasProperty(BlockStateProperties.CHEST_TYPE)) {
+            ChestType req = required.getValue(BlockStateProperties.CHEST_TYPE);
+            ChestType placed = newState.getValue(BlockStateProperties.CHEST_TYPE);
 
             if (req != placed && !(req == ChestType.LEFT && placed == ChestType.SINGLE )) {
                 return false;
             }
         }
 
-        if (required.getBlock() instanceof MultifaceGrowthBlock) {
-            if (newState.get(Properties.UP) && !required.get(Properties.UP)) return false;
-            if (newState.get(Properties.DOWN) && !required.get(Properties.DOWN)) return false;
-            if (newState.get(Properties.EAST) && !required.get(Properties.EAST)) return false;
-            if (newState.get(Properties.NORTH) && !required.get(Properties.NORTH)) return false;
-            if (newState.get(Properties.SOUTH) && !required.get(Properties.SOUTH)) return false;
-            if (newState.get(Properties.WEST) && !required.get(Properties.WEST)) return false;
+        if (required.getBlock() instanceof MultifaceSpreadeableBlock) {
+            if (newState.getValue(BlockStateProperties.UP) && !required.getValue(BlockStateProperties.UP)) return false;
+            if (newState.getValue(BlockStateProperties.DOWN) && !required.getValue(BlockStateProperties.DOWN)) return false;
+            if (newState.getValue(BlockStateProperties.EAST) && !required.getValue(BlockStateProperties.EAST)) return false;
+            if (newState.getValue(BlockStateProperties.NORTH) && !required.getValue(BlockStateProperties.NORTH)) return false;
+            if (newState.getValue(BlockStateProperties.SOUTH) && !required.getValue(BlockStateProperties.SOUTH)) return false;
+            if (newState.getValue(BlockStateProperties.WEST) && !required.getValue(BlockStateProperties.WEST)) return false;
         }
 
-        if (propertyMismatch(required, newState, Properties.BLOCK_HALF)) return false;
-        if (propertyMismatch(required, newState, Properties.AXIS)) return false;
-        if (propertyMismatch(required, newState, Properties.FACING)) return false;
-        if (propertyMismatch(required, newState, Properties.HOPPER_FACING)) return false;
-        if (propertyMismatch(required, newState, Properties.HORIZONTAL_FACING)) return false;
-        if (propertyMismatch(required, newState, Properties.BLOCK_FACE)) return false;
-        if (propertyMismatch(required, newState, Properties.BED_PART)) return false;
-        if (propertyMismatch(required, newState, Properties.DOUBLE_BLOCK_HALF)) return false;
-        if (propertyMismatch(required, newState, Properties.DOOR_HINGE)) return false;
-        if (propertyMismatch(required, newState, Properties.ATTACHMENT)) return false;
-        if (propertyMismatch(required, newState, Properties.ATTACHED)) return false;
-        if (propertyMismatch(required, newState, Properties.HANGING)) return false;
-        if (propertyMismatch(required, newState, Properties.ORIENTATION)) return false;
-        if (propertyMismatch(required, newState, Properties.VERTICAL_DIRECTION)) return false;
-        if (propertyMismatch(required, newState, Properties.ROTATION)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.HALF)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.AXIS)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.FACING)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.FACING_HOPPER)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.HORIZONTAL_FACING)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.ATTACH_FACE)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.BED_PART)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.DOUBLE_BLOCK_HALF)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.DOOR_HINGE)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.BELL_ATTACHMENT)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.ATTACHED)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.HANGING)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.ORIENTATION)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.VERTICAL_DIRECTION)) return false;
+        if (propertyMismatch(required, newState, BlockStateProperties.ROTATION_16)) return false;
 
         return true;
     }
 
     private static <T extends Comparable<T>> boolean propertyMismatch(BlockState bs1, BlockState bs2, Property<@NotNull T> property) {
-        if (bs1.contains(property) || bs2.contains(property)) {
-            if (bs1.contains(property) != bs2.contains(property)) {
+        if (bs1.hasProperty(property) || bs2.hasProperty(property)) {
+            if (bs1.hasProperty(property) != bs2.hasProperty(property)) {
                 return true;
             }
-            return bs1.get(property) != bs2.get(property);
+            return bs1.getValue(property) != bs2.getValue(property);
         } else {
             return false;
         }
@@ -267,9 +277,9 @@ public class PlaceTask extends Task {
     @Override
     public boolean execute() {
         assert mc.player != null;
-        assert mc.world != null;
+        assert mc.level != null;
 
-        if (mc.world.getBlockState(location) != current) return false;
+        if (mc.level.getBlockState(location) != current) return false;
 
         if (!InventoryManager.switchItem(item)) {
             return false;
@@ -283,7 +293,7 @@ public class PlaceTask extends Task {
 
         BlockState state = worldSchematic.getBlockState(location);
 
-        if (!mc.world.canPlace(state, location, ShapeContext.absent())) {
+        if (!mc.level.isUnobstructed(state, location, CollisionContext.empty())) {
             return false;
         }
 
@@ -291,13 +301,13 @@ public class PlaceTask extends Task {
             Utils.rotate(contextRotation.getLookYaw(), contextRotation.getLookPitch());
         }
 
-        Utils.setSneaking(context.shouldCancelInteraction());
+        Utils.setSneaking(context.isSecondaryUseActive());
 
-        if (required.getBlock() instanceof AbstractSignBlock) {
+        if (required.getBlock() instanceof SignBlock) {
             ModulePrinter.lastSignPlaceTime = System.currentTimeMillis();
         }
 
-        Utils.interactBlock(context.getHitResult(), Hand.MAIN_HAND, context.getLookPitch(), context.getLookYaw(), context.shouldCancelInteraction());
+        Utils.interactBlock(context.getHitResult(), InteractionHand.MAIN_HAND, context.getLookPitch(), context.getLookYaw(), context.isSecondaryUseActive());
 
         return true;
     }

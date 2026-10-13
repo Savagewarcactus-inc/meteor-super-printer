@@ -1,8 +1,8 @@
-accessWidener v1 named
+classTweaker v1 official
 
-accessible method net/minecraft/item/BlockItem getPlacementState (Lnet/minecraft/item/ItemPlacementContext;)Lnet/minecraft/block/BlockState;
+accessible method net/minecraft/world/item/BlockItem getPlacementState (Lnet/minecraft/world/item/context/BlockPlaceContext;)Lnet/minecraft/world/level/block/state/BlockState;
 
-accessible method net/minecraft/block/RedstoneWireBlock isFullyConnected (Lnet/minecraft/block/BlockState;)Z
-accessible method net/minecraft/block/RedstoneWireBlock isNotConnected (Lnet/minecraft/block/BlockState;)Z
+accessible method net/minecraft/world/level/block/RedStoneWireBlock isCross (Lnet/minecraft/world/level/block/state/BlockState;)Z
+accessible method net/minecraft/world/level/block/RedStoneWireBlock isDot (Lnet/minecraft/world/level/block/state/BlockState;)Z
 
-accessible method net/minecraft/item/ItemUsageContext getHitResult ()Lnet/minecraft/util/hit/BlockHitResult;
+accessible method net/minecraft/world/item/context/UseOnContext getHitResult ()Lnet/minecraft/world/phys/BlockHitResult;

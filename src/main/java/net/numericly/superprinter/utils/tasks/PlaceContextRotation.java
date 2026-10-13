@@ -1,31 +1,30 @@
 package net.numericly.superprinter.utils.tasks;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-
 import static meteordevelopment.meteorclient.MeteorClient.mc;
-import static net.minecraft.util.math.Direction.*;
+import static net.minecraft.core.Direction.*;
 
-public class PlaceContextRotation extends ItemPlacementContext {
+import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+
+public class PlaceContextRotation extends BlockPlaceContext {
 
     private final boolean sneaking;
     private final float lookYaw;
     private final float lookPitch;
 
-    protected PlaceContextRotation(World level, float lookYaw, float lookPitch, Hand interactionHand, ItemStack itemStack, BlockHitResult blockHitResult) {
+    protected PlaceContextRotation(Level level, float lookYaw, float lookPitch, InteractionHand interactionHand, ItemStack itemStack, BlockHitResult blockHitResult) {
         super(level, null, interactionHand, itemStack, blockHitResult);
         this.lookYaw = lookYaw;
         this.lookPitch = lookPitch;
 
         assert mc.player != null;
 
-        this.sneaking = mc.player.isSneaking();
+        this.sneaking = mc.player.isShiftKeyDown();
     }
 
     public float getLookYaw() {
@@ -37,22 +36,22 @@ public class PlaceContextRotation extends ItemPlacementContext {
     }
 
     @Override
-    public Direction getPlayerLookDirection() {
+    public Direction getNearestLookingDirection() {
         return getEntityFacingOrder(lookPitch, lookYaw)[0];
     }
 
     @Override
-    public Direction getVerticalPlayerLookDirection() {
+    public Direction getNearestLookingVerticalDirection() {
         return getLookDirectionForAxis(lookPitch, lookYaw, Direction.Axis.Y);
     }
 
     @Override
-    public Direction[] getPlacementDirections() {
+    public Direction[] getNearestLookingDirections() {
         Direction[] directions = getEntityFacingOrder(lookPitch, lookYaw);
-        if (this.canReplaceExisting) {
+        if (this.replaceClicked) {
             return directions;
         } else {
-            Direction direction = this.getSide();
+            Direction direction = this.getClickedFace();
             int i = 0;
 
             while (i < directions.length && directions[i] != direction.getOpposite()) {
@@ -69,35 +68,35 @@ public class PlaceContextRotation extends ItemPlacementContext {
     }
 
     @Override
-    public Direction getHorizontalPlayerFacing() {
-        return Direction.fromHorizontalDegrees(lookYaw);
+    public Direction getHorizontalDirection() {
+        return Direction.fromYRot(lookYaw);
     }
 
     @Override
-    public boolean shouldCancelInteraction() {
+    public boolean isSecondaryUseActive() {
         return sneaking;
     }
 
     @Override
-    public float getPlayerYaw() {
+    public float getRotation() {
         return lookYaw;
     }
 
     public static Direction getLookDirectionForAxis(float pitch, float yaw, Direction.Axis axis) {
         return switch (axis) {
-            case X -> EAST.pointsTo(yaw) ? EAST : WEST;
+            case X -> EAST.isFacingAngle(yaw) ? EAST : WEST;
             case Y -> pitch < 0.0F ? UP : DOWN;
-            case Z -> SOUTH.pointsTo(yaw) ? SOUTH : NORTH;
+            case Z -> SOUTH.isFacingAngle(yaw) ? SOUTH : NORTH;
         };
     }
 
     public static Direction[] getEntityFacingOrder(float pitch, float yaw) {
         float f = pitch * (float) (Math.PI / 180.0);
         float g = -yaw * (float) (Math.PI / 180.0);
-        float h = MathHelper.sin(f);
-        float i = MathHelper.cos(f);
-        float j = MathHelper.sin(g);
-        float k = MathHelper.cos(g);
+        float h = Mth.sin(f);
+        float i = Mth.cos(f);
+        float j = Mth.sin(g);
+        float k = Mth.cos(g);
         boolean bl = j > 0.0F;
         boolean bl2 = h < 0.0F;
         boolean bl3 = k > 0.0F;

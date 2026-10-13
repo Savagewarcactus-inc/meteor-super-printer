@@ -1,15 +1,14 @@
 package net.numericly.superprinter.utils;
 
+import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 import net.numericly.superprinter.modules.ModulePrinter;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
-import net.minecraft.world.GameMode;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,18 +30,18 @@ public class InventoryManager {
     public static boolean switchItem(Item item) {
         assert mc.player != null;
 
-        if (mc.player.getGameMode() == GameMode.CREATIVE) {
+        if (mc.player.gameMode() == GameType.CREATIVE) {
             ItemStack stack = new ItemStack(item, 1);
 
-            mc.getNetworkHandler().sendPacket(new CreativeInventoryActionC2SPacket(36 + mc.player.getInventory().getSelectedSlot(), stack));
-            mc.player.playerScreenHandler.getSlot(36 + mc.player.getInventory().getSelectedSlot()).setStack(stack);
+            mc.getConnection().send(new ServerboundSetCreativeModeSlotPacket(36 + mc.player.getInventory().getSelectedSlot(), stack));
+            mc.player.inventoryMenu.getSlot(36 + mc.player.getInventory().getSelectedSlot()).setByPlayer(stack);
 
             return true;
         }
 
         int selectedSlot = mc.player.getInventory().getSelectedSlot();
 
-        if (mc.player.getInventory().getStack(selectedSlot).getItem() == item) {
+        if (mc.player.getInventory().getItem(selectedSlot).getItem() == item) {
             if (getSlotUpdate(selectedSlot)) {
                 return false;
             }
@@ -98,8 +97,8 @@ public class InventoryManager {
             return true;
         }
 
-        ItemStack stack = mc.player.getInventory().getStack(slot);
-        int halfStackSize = stack.getItem().getMaxCount() / 4;
+        ItemStack stack = mc.player.getInventory().getItem(slot);
+        int halfStackSize = stack.getItem().getDefaultMaxStackSize() / 4;
 
         return stack.getCount() > halfStackSize;
     }

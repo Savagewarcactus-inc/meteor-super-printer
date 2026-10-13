@@ -2,24 +2,23 @@
 mod-version = "1.2.0"
 
 # Fabric (https://fabricmc.net/develop)
-minecraft = "1.21.11"
-yarn-mappings = "1.21.11+build.3"
-fabric-loader = "0.18.2"
+jdk = "25"
+minecraft = "26.2"
+fabric-loader = "0.19.3"
 
 # Loom (https://github.com/FabricMC/fabric-loom)
-loom = "1.15-SNAPSHOT"
+loom = "1.17-SNAPSHOT"
 
 # Meteor (https://github.com/MeteorDevelopment/meteor-client/)
-meteor = "1.21.11-SNAPSHOT"
+meteor = "26.2-SNAPSHOT"
 
 # Mods
-litematica = "1.21.11-0.26.0"
-malilib = "1.21.11-0.27.6"
+litematica = "26.2-0.28.6"
+malilib = "26.2-0.29.5"
 
 [libraries]
 # Fabric base
 minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
-yarn = { module = "net.fabricmc:yarn", version.ref = "yarn-mappings" }
 fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
 
 # Meteor client
@@ -30,4 +29,4 @@ litematica = { module = "com.github.sakura-ryoko:litematica", version.ref = "lit
 malilib = { module = "com.github.sakura-ryoko:malilib", version.ref = "malilib" }
 
 [plugins]
-fabric-loom = { id = "fabric-loom", version.ref = "loom" }
+fabric-loom = { id = "net.fabricmc.fabric-loom", version.ref = "loom" }
